@@ -194,7 +194,6 @@ API Docs → `http://localhost:8000/docs`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | Health check |
 | GET | `/api/stats` | Live counters — txns, fraud, TPS |
 | GET | `/api/alerts` | Recent fraud alerts |
 | GET | `/api/fraud-rings` | Detected rings with mule info |
