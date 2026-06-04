@@ -1,0 +1,85 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Environment Variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE Files
+.vscode/
+.idea/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+
+# Python Packaging
+*.egg
+*.whl
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type Checking
+.mypy_cache/
+
+# PyTorch Models
+*.pt
+*.pth
+*.ckpt
+
+# Dataset Files (Large Files)
+data/raw/
+data/processed/
+datasets/
+
+# Temporary Files
+temp/
+tmp/
+
+# SQLite Database
+*.db
+*.sqlite3
+
+# Streamlit
+.streamlit/secrets.toml
+
+# FastAPI Cache
+.cache/
+
+# Generated Reports
+reports/
+outputs/
+
+# Railway
+.railway/
+
+# Node (if frontend exists)
+node_modules/
+
+# Secrets
+config/secrets.json
+credentials.json
+
+# ZIP Files
+*.zip

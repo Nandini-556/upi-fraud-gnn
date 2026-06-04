@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>UPI Fraud Sentinel</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#080c10;--bg1:#0d1117;--bg2:#111820;--bg3:#162030;
+  --border:rgba(56,139,202,0.12);--border2:rgba(56,139,202,0.22);
+  --accent:#2f81f7;--accent2:#58a6ff;
+  --red:#f85149;--red2:#ff7b72;
+  --amber:#e3b341;--amber2:#f0c674;
+  --green:#3fb950;--green2:#56d364;
+  --muted:#8b949e;--text:#e6edf3;--text2:#c9d1d9;
+  --mono:'JetBrains Mono',monospace;--sans:'Sora',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px)}
+.grid-bg{position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(47,129,247,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(47,129,247,0.04) 1px,transparent 1px);background-size:40px 40px;animation:gridDrift 20s linear infinite}
+@keyframes gridDrift{0%{background-position:0 0}100%{background-position:40px 40px}}
+.glow-tl{position:fixed;top:-200px;left:-200px;width:500px;height:500px;background:radial-gradient(circle,rgba(47,129,247,0.07),transparent 70%);pointer-events:none;z-index:0}
+.glow-br{position:fixed;bottom:-200px;right:-200px;width:400px;height:400px;background:radial-gradient(circle,rgba(248,81,73,0.05),transparent 70%);pointer-events:none;z-index:0}
+.shell{position:relative;z-index:1;display:grid;grid-template-rows:48px 1fr;height:100vh;width:100%}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--border);background:rgba(8,12,16,0.85);backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:22px;height:22px}
+.logo-icon svg{width:100%;height:100%}
+.logo-name{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:0.08em}
+.logo-badge{font-family:var(--mono);font-size:9px;color:var(--accent);background:rgba(47,129,247,0.1);border:1px solid rgba(47,129,247,0.25);padding:2px 7px;border-radius:3px;letter-spacing:0.06em}
+.header-right{display:flex;align-items:center;gap:16px}
+.live-dot{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--green)}
+.live-dot::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.header-stat{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.header-stat span{color:var(--text2)}
+.nav-btn{background:none;border:1px solid var(--border2);color:var(--muted);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;letter-spacing:0.05em;transition:all .15s}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent2);background:rgba(47,129,247,0.07)}
+.main{display:grid;grid-template-columns:200px 1fr 260px;height:100%;overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{border-right:1px solid var(--border);padding:16px 0;overflow-y:auto;background:rgba(13,17,23,0.5)}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sidebar-section{margin-bottom:20px}
+.sidebar-label{font-family:var(--mono);font-size:9px;letter-spacing:0.12em;color:var(--muted);padding:0 16px 8px;text-transform:uppercase}
+.sidebar-item{display:flex;align-items:center;justify-content:space-between;padding:7px 16px;cursor:pointer;transition:background .12s;user-select:none}
+.sidebar-item:hover{background:rgba(47,129,247,0.06)}
+.sidebar-item.active{background:rgba(47,129,247,0.1);border-right:2px solid var(--accent)}
+.sidebar-item-left{display:flex;align-items:center;gap:8px}
+.sidebar-icon{width:14px;height:14px;opacity:0.6;flex-shrink:0}
+.sidebar-item.active .sidebar-icon{opacity:1}
+.sidebar-text{font-size:12px;color:var(--text2)}
+.sidebar-item.active .sidebar-text{color:var(--accent2)}
+.badge{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:10px}
+.badge-red{background:rgba(248,81,73,0.15);color:var(--red2);border:1px solid rgba(248,81,73,0.2)}
+.badge-amber{background:rgba(227,179,65,0.15);color:var(--amber2);border:1px solid rgba(227,179,65,0.2)}
+.badge-muted{background:rgba(139,148,158,0.1);color:var(--muted);border:1px solid rgba(139,148,158,0.15)}
+.badge-green{background:rgba(63,185,80,0.15);color:var(--green2);border:1px solid rgba(63,185,80,0.2)}
+
+/* CENTER */
+.center{display:grid;grid-template-rows:auto 1fr auto;overflow:hidden}
+.metrics-bar{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--border);background:rgba(13,17,23,0.5)}
+.metric{padding:12px 16px;border-right:1px solid var(--border);position:relative;overflow:hidden;animation:fadeSlideIn .4s ease both}
+.metric:last-child{border-right:none}
+.metric-label{font-family:var(--mono);font-size:9px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.metric-value{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1}
+.metric-value.red{color:var(--red2)}.metric-value.amber{color:var(--amber2)}.metric-value.green{color:var(--green2)}.metric-value.blue{color:var(--accent2)}
+.metric-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px}
+.metric-sub .up{color:var(--red)}
+.metric-bar-fill{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.metric:nth-child(1){animation-delay:.05s}.metric:nth-child(2){animation-delay:.1s}.metric:nth-child(3){animation-delay:.15s}.metric:nth-child(4){animation-delay:.2s}.metric:nth-child(5){animation-delay:.25s}
+
+/* VIEWS */
+.view{display:none;width:100%;height:100%;overflow:hidden}
+.view.active{display:flex;flex-direction:column}
+.graph-area{position:relative;overflow:hidden;background:var(--bg1);flex:1}
+.graph-toolbar{position:absolute;top:12px;left:12px;z-index:10;display:flex;gap:6px}
+.tool-btn{font-family:var(--mono);font-size:9px;padding:4px 10px;border:1px solid var(--border2);border-radius:3px;background:rgba(13,17,23,0.85);color:var(--muted);cursor:pointer;letter-spacing:0.05em;transition:all .15s;backdrop-filter:blur(8px)}
+.tool-btn:hover,.tool-btn.active{border-color:var(--accent);color:var(--accent2);background:rgba(47,129,247,0.1)}
+.graph-info{position:absolute;bottom:12px;left:12px;z-index:10;font-family:var(--mono);font-size:9px;color:var(--muted);background:rgba(13,17,23,0.8);padding:6px 10px;border:1px solid var(--border);border-radius:4px;backdrop-filter:blur(8px)}
+canvas#graphCanvas{width:100%;height:100%;display:block}
+
+/* CONTENT VIEWS (non-graph) */
+.content-view{flex:1;overflow-y:auto;padding:20px}
+.content-view::-webkit-scrollbar{width:3px}
+.content-view::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.view-title{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.cv-grid{display:grid;gap:10px}
+.cv-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px}
+.cv-card-title{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text2);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.cv-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(56,139,202,0.06)}
+.cv-row:last-child{border-bottom:none}
+.cv-key{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.cv-val{font-family:var(--mono);font-size:10px;color:var(--text2)}
+.cv-val.green{color:var(--green2)}.cv-val.amber{color:var(--amber2)}.cv-val.red{color:var(--red2)}.cv-val.blue{color:var(--accent2)}
+.bar-row{margin-bottom:8px}
+.bar-label-row{display:flex;justify-content:space-between;margin-bottom:3px}
+.bar-label{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.bar-val{font-family:var(--mono);font-size:9px}
+.bar-bg{height:4px;background:rgba(139,148,158,0.12);border-radius:2px;overflow:hidden}
+.bar-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.layer-block{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px;position:relative;overflow:hidden}
+.layer-block::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px}
+.layer-block.sage::before{background:var(--accent)}
+.layer-block.gat::before{background:var(--amber)}
+.layer-block.lin::before{background:var(--green)}
+.layer-name{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--text);margin-bottom:4px}
+.layer-detail{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.6}
+.log-line{font-family:var(--mono);font-size:10px;line-height:1.8;border-bottom:1px solid rgba(56,139,202,0.04);padding:1px 0}
+.log-time{color:var(--muted);margin-right:8px}
+.log-info{color:var(--accent2)}.log-warn{color:var(--amber)}.log-err{color:var(--red2)}.log-ok{color:var(--green2)}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-family:var(--mono);font-size:10px;color:var(--text2)}
+.setting-desc{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px}
+.toggle{width:32px;height:18px;background:rgba(139,148,158,0.2);border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle.on::after{transform:translateX(14px)}
+.input-field{background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-family:var(--mono);font-size:10px;padding:4px 8px;border-radius:4px;width:80px;text-align:right}
+.input-field:focus{outline:none;border-color:var(--accent)}
+.ring-detail-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.ring-detail-card:hover{border-color:rgba(227,179,65,0.3);background:rgba(227,179,65,0.04)}
+.ring-detail-card.hi{border-color:rgba(227,179,65,0.4);background:rgba(227,179,65,0.05)}
+.rdc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.rdc-id{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--amber2)}
+.rdc-score{font-family:var(--mono);font-size:10px;color:var(--red2)}
+.rdc-nodes{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.node-pill{font-family:var(--mono);font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(47,129,247,0.1);border:1px solid rgba(47,129,247,0.2);color:var(--accent2)}
+.node-pill.mule{background:rgba(248,81,73,0.1);border-color:rgba(248,81,73,0.25);color:var(--red2)}
+.rdc-stats{display:flex;gap:12px}
+.rdc-stat{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.rdc-stat span{color:var(--text2)}
+.perf-chart{display:flex;align-items:flex-end;gap:3px;height:80px;margin-top:8px;margin-bottom:4px}
+.perf-bar{flex:1;border-radius:2px 2px 0 0;transition:height .3s;cursor:pointer;min-height:4px}
+.perf-bar:hover{opacity:0.8}
+.perf-labels{display:flex;gap:3px}
+.perf-label{flex:1;font-family:var(--mono);font-size:8px;color:var(--muted);text-align:center}
+.mini-confusion{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;margin-top:8px}
+.conf-cell{padding:8px;border-radius:4px;text-align:center}
+.conf-val{font-family:var(--mono);font-size:14px;font-weight:600}
+.conf-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:2px}
+
+/* STATUS BAR */
+.status-bar{border-top:1px solid var(--border);padding:6px 16px;display:flex;align-items:center;gap:20px;background:rgba(8,12,16,0.85);flex-shrink:0}
+.status-item{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--muted)}
+.status-dot{width:5px;height:5px;border-radius:50%}
+
+/* RIGHT PANEL */
+.right-panel{border-left:1px solid var(--border);display:grid;grid-template-rows:1fr 1fr;overflow:hidden;background:rgba(13,17,23,0.3)}
+.panel-section{display:flex;flex-direction:column;overflow:hidden}
+.panel-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.panel-title{font-family:var(--mono);font-size:10px;letter-spacing:0.08em;color:var(--text2);text-transform:uppercase}
+.panel-body{flex:1;overflow-y:auto;padding:8px}
+.panel-body::-webkit-scrollbar{width:3px}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.alert-card{margin-bottom:6px;padding:9px 10px;border-radius:4px;border-left:2px solid;cursor:pointer;transition:all .15s}
+.alert-card:hover{transform:translateX(2px)}
+.alert-card.critical{background:rgba(248,81,73,0.07);border-color:var(--red)}
+.alert-card.warning{background:rgba(227,179,65,0.07);border-color:var(--amber)}
+.alert-card.info{background:rgba(47,129,247,0.06);border-color:var(--accent)}
+.alert-card.safe{background:rgba(63,185,80,0.05);border-color:var(--green)}
+.alert-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.alert-type{font-family:var(--mono);font-size:10px;font-weight:600}
+.alert-card.critical .alert-type{color:var(--red2)}.alert-card.warning .alert-type{color:var(--amber2)}.alert-card.info .alert-type{color:var(--accent2)}.alert-card.safe .alert-type{color:var(--green2)}
+.alert-score{font-family:var(--mono);font-size:11px;font-weight:600}
+.alert-card.critical .alert-score{color:var(--red)}.alert-card.warning .alert-score{color:var(--amber)}.alert-card.info .alert-score{color:var(--accent)}.alert-card.safe .alert-score{color:var(--green)}
+.alert-meta{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.alert-meta b{color:var(--text2)}
+.alert-tags{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:8px;padding:1px 5px;border-radius:2px;background:rgba(139,148,158,0.1);color:var(--muted);letter-spacing:0.05em}
+.ring-card{margin-bottom:6px;padding:9px 10px;border-radius:4px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.ring-card:hover{border-color:var(--border2);background:var(--bg3)}
+.ring-card.selected{border-color:rgba(227,179,65,0.4);background:rgba(227,179,65,0.05)}
+.ring-top{display:flex;justify-content:space-between;margin-bottom:4px}
+.ring-id{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--amber2)}
+.ring-density{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.ring-bar-bg{height:3px;background:rgba(139,148,158,0.15);border-radius:2px;margin-bottom:4px;overflow:hidden}
+.ring-bar-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--amber),var(--red))}
+.ring-stats{display:flex;gap:10px}
+.ring-stat{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.ring-stat span{color:var(--text2)}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="glow-tl"></div>
+<div class="glow-br"></div>
+<div class="shell">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 22 22" fill="none"><polygon points="11,2 20,7 20,15 11,20 2,15 2,7" stroke="#2f81f7" stroke-width="1.2" fill="rgba(47,129,247,0.08)"/><polygon points="11,6 16,9 16,13 11,16 6,13 6,9" stroke="#58a6ff" stroke-width="0.8" fill="rgba(88,166,255,0.1)"/><circle cx="11" cy="11" r="2" fill="#2f81f7"/></svg>
+    </div>
+    <span class="logo-name">FRAUD·SENTINEL</span>
+    <span class="logo-badge">GNN v2.1</span>
+  </div>
+  <div class="header-right">
+    <div class="live-dot">LIVE STREAM</div>
+    <div class="header-stat">KAFKA <span id="tps">847</span> txns/s</div>
+    <div class="header-stat">NODES <span>12,483</span></div>
+    <div class="header-stat">EDGES <span>89,201</span></div>
+    <button class="nav-btn">EXPORT</button>
+    <button class="nav-btn" id="pauseBtn" onclick="togglePause()" style="border-color:rgba(248,81,73,0.3);color:#f85149;">⚠ PAUSE</button>
+  </div>
+</header>
+
+<div class="main">
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-section">
+    <div class="sidebar-label">Detection</div>
+    <div class="sidebar-item active" onclick="switchView('live',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="#58a6ff" stroke-width="1"/><path d="M7 4v3l2 1" stroke="#58a6ff" stroke-width="1" stroke-linecap="round"/></svg>
+        <span class="sidebar-text">Live Monitor</span>
+      </div>
+      <span class="badge badge-red" id="sb-fraud">142</span>
+    </div>
+    <div class="sidebar-item" onclick="switchView('rings',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><polygon points="7,1 13,4.5 13,9.5 7,13 1,9.5 1,4.5" stroke="#8b949e" stroke-width="1" fill="none"/><circle cx="7" cy="7" r="1.5" fill="#8b949e"/></svg>
+        <span class="sidebar-text">Ring Detector</span>
+      </div>
+      <span class="badge badge-amber">7</span>
+    </div>
+    <div class="sidebar-item" onclick="switchView('subgraph',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3" r="1.5" stroke="#8b949e" stroke-width="1"/><circle cx="2" cy="11" r="1.5" stroke="#8b949e" stroke-width="1"/><circle cx="12" cy="11" r="1.5" stroke="#8b949e" stroke-width="1"/><line x1="7" y1="4.5" x2="2" y2="9.5" stroke="#8b949e" stroke-width="0.8"/><line x1="7" y1="4.5" x2="12" y2="9.5" stroke="#8b949e" stroke-width="0.8"/><line x1="2" y1="11" x2="12" y2="11" stroke="#8b949e" stroke-width="0.8"/></svg>
+        <span class="sidebar-text">Subgraph View</span>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Model</div>
+    <div class="sidebar-item" onclick="switchView('graphsage',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="4" r="2" stroke="#8b949e" stroke-width="1"/><circle cx="3" cy="10" r="2" stroke="#8b949e" stroke-width="1"/><circle cx="11" cy="10" r="2" stroke="#8b949e" stroke-width="1"/><path d="M7 6l-4 2M7 6l4 2" stroke="#8b949e" stroke-width="0.8"/></svg>
+        <span class="sidebar-text">GraphSAGE</span>
+      </div>
+      <span class="badge badge-green">✓</span>
+    </div>
+    <div class="sidebar-item" onclick="switchView('gat',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><path d="M2 10 L7 2 L12 10 Z" stroke="#8b949e" stroke-width="1" fill="none"/><circle cx="7" cy="7" r="1" fill="#8b949e"/></svg>
+        <span class="sidebar-text">GAT Layers</span>
+      </div>
+      <span class="badge badge-muted">3</span>
+    </div>
+    <div class="sidebar-item" onclick="switchView('performance',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><rect x="1" y="5" width="3" height="6" rx="1" stroke="#8b949e" stroke-width="1"/><rect x="5.5" y="3" width="3" height="8" rx="1" stroke="#8b949e" stroke-width="1"/><rect x="10" y="1" width="3" height="10" rx="1" stroke="#8b949e" stroke-width="1"/></svg>
+        <span class="sidebar-text">Performance</span>
+      </div>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-label">Config</div>
+    <div class="sidebar-item" onclick="switchView('settings',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#8b949e" stroke-width="1"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M3.1 3.1l1 1M9.9 9.9l1 1M10.9 3.1l-1 1M4.1 9.9l-1 1" stroke="#8b949e" stroke-width="1" stroke-linecap="round"/></svg>
+        <span class="sidebar-text">Settings</span>
+      </div>
+    </div>
+    <div class="sidebar-item" onclick="switchView('logs',this)">
+      <div class="sidebar-item-left">
+        <svg class="sidebar-icon" viewBox="0 0 14 14" fill="none"><path d="M2 4h10M2 7h7M2 10h5" stroke="#8b949e" stroke-width="1" stroke-linecap="round"/></svg>
+        <span class="sidebar-text">Logs</span>
+      </div>
+      <span class="badge badge-muted" id="log-badge">∞</span>
+    </div>
+  </div>
+  <!-- Model health mini -->
+  <div style="padding:12px 14px;margin-top:4px;border-top:1px solid var(--border)">
+    <div class="sidebar-label" style="padding:0 0 8px">Model Health</div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-family:var(--mono);font-size:9px;color:var(--muted)">AUC-ROC</span><span style="font-family:var(--mono);font-size:9px;color:var(--green2)">0.986</span></div>
+      <div style="height:2px;background:rgba(139,148,158,0.15);border-radius:1px"><div style="width:98.6%;height:100%;background:var(--green2);border-radius:1px"></div></div>
+    </div>
+    <div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-family:var(--mono);font-size:9px;color:var(--muted)">Precision</span><span style="font-family:var(--mono);font-size:9px;color:var(--accent2)">97.3%</span></div>
+      <div style="height:2px;background:rgba(139,148,158,0.15);border-radius:1px"><div style="width:97.3%;height:100%;background:var(--accent2);border-radius:1px"></div></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-family:var(--mono);font-size:9px;color:var(--muted)">Recall</span><span style="font-family:var(--mono);font-size:9px;color:var(--amber2)">94.1%</span></div>
+      <div style="height:2px;background:rgba(139,148,158,0.15);border-radius:1px"><div style="width:94.1%;height:100%;background:var(--amber2);border-radius:1px"></div></div>
+    </div>
+  </div>
+</aside>
+
+<!-- CENTER PANEL -->
+<div class="center">
+  <div class="metrics-bar">
+    <div class="metric"><div class="metric-label">Total Txns Today</div><div class="metric-value blue" id="totalTxns">23,841</div><div class="metric-sub"><span class="up" id="tpsLabel">+847/s</span> streaming</div><div class="metric-bar-fill" style="width:60%"></div></div>
+    <div class="metric"><div class="metric-label">Flagged Fraud</div><div class="metric-value red" id="fraudCount">142</div><div class="metric-sub"><span class="up">+3</span> last 60s</div><div class="metric-bar-fill" style="width:30%;background:linear-gradient(90deg,var(--red),transparent)"></div></div>
+    <div class="metric"><div class="metric-label">Fraud Rings</div><div class="metric-value amber">7</div><div class="metric-sub">4 active · 3 resolved</div><div class="metric-bar-fill" style="width:20%;background:linear-gradient(90deg,var(--amber),transparent)"></div></div>
+    <div class="metric"><div class="metric-label">Money Mules</div><div class="metric-value red">19</div><div class="metric-sub">High betweenness</div><div class="metric-bar-fill" style="width:15%;background:linear-gradient(90deg,var(--red),transparent)"></div></div>
+    <div class="metric"><div class="metric-label">Inference Latency</div><div class="metric-value green">12ms</div><div class="metric-sub">p99 · GraphSAGE 3-hop</div><div class="metric-bar-fill" style="width:8%;background:linear-gradient(90deg,var(--green),transparent)"></div></div>
+  </div>
+
+  <!-- VIEW: Live Monitor (graph) -->
+  <div class="view active" id="view-live">
+    <div class="graph-area">
+      <div class="graph-toolbar">
+        <button class="tool-btn active" onclick="setMode('all',this)">ALL NODES</button>
+        <button class="tool-btn" onclick="setMode('rings',this)">RINGS ONLY</button>
+        <button class="tool-btn" onclick="setMode('mules',this)">MULES</button>
+        <button class="tool-btn" onclick="resetGraph()">RESET</button>
+      </div>
+      <canvas id="graphCanvas"></canvas>
+      <div class="graph-info"><span id="graphInfo">12,483 nodes · 89,201 edges · Ring #4 highlighted · Click node to inspect</span></div>
+    </div>
+  </div>
+
+  <!-- VIEW: Ring Detector -->
+  <div class="view" id="view-rings">
+    <div class="content-view">
+      <div class="view-title">Ring Detector — Louvain Community Detection</div>
+      <div class="cv-grid">
+        <div class="ring-detail-card hi" onclick="highlightRingFromView(4)">
+          <div class="rdc-top"><span class="rdc-id">RING #4 · ACTIVE</span><span class="rdc-score">fraud score: 0.94</span></div>
+          <div class="rdc-nodes">
+            <span class="node-pill">card:13926</span>
+            <span class="node-pill">card:41029</span>
+            <span class="node-pill mule">card:2190 ★MULE</span>
+            <span class="node-pill">card:88341</span>
+          </div>
+          <div class="rdc-stats">
+            <span class="rdc-stat">density: <span>0.83</span></span>
+            <span class="rdc-stat">nodes: <span>4</span></span>
+            <span class="rdc-stat">total: <span>₹1.2L</span></span>
+            <span class="rdc-stat">hops: <span>3</span></span>
+          </div>
+        </div>
+        <div class="ring-detail-card" onclick="highlightRingFromView(2)">
+          <div class="rdc-top"><span class="rdc-id">RING #2 · ACTIVE</span><span class="rdc-score">fraud score: 0.87</span></div>
+          <div class="rdc-nodes">
+            <span class="node-pill">card:8841</span><span class="node-pill">card:9910</span><span class="node-pill">card:11203</span>
+            <span class="node-pill mule">card:8841 ★MULE</span><span class="node-pill">card:22108</span><span class="node-pill">card:31090</span>
+          </div>
+          <div class="rdc-stats"><span class="rdc-stat">density: <span>0.71</span></span><span class="rdc-stat">nodes: <span>6</span></span><span class="rdc-stat">total: <span>₹3.8L</span></span></div>
+        </div>
+        <div class="ring-detail-card" onclick="highlightRingFromView(5)">
+          <div class="rdc-top"><span class="rdc-id">RING #5 · ACTIVE</span><span class="rdc-score">fraud score: 0.79</span></div>
+          <div class="rdc-nodes"><span class="node-pill">card:44120</span><span class="node-pill mule">card:1043 ★MULE</span><span class="node-pill">card:5512</span></div>
+          <div class="rdc-stats"><span class="rdc-stat">density: <span>0.68</span></span><span class="rdc-stat">nodes: <span>3</span></span><span class="rdc-stat">total: <span>₹88K</span></span></div>
+        </div>
+        <div class="ring-detail-card" onclick="highlightRingFromView(1)">
+          <div class="rdc-top"><span class="rdc-id">RING #1 · RESOLVED</span><span class="rdc-score" style="color:var(--muted)">score: 0.62</span></div>
+          <div class="rdc-nodes"><span class="node-pill" style="opacity:0.5">card:3317</span><span class="node-pill mule" style="opacity:0.5">card:3317 ★MULE</span><span class="node-pill" style="opacity:0.5">+6 more</span></div>
+          <div class="rdc-stats"><span class="rdc-stat">density: <span>0.62</span></span><span class="rdc-stat">nodes: <span>8</span></span><span class="rdc-stat">total: <span>₹7.1L</span></span><span class="rdc-stat" style="color:var(--green2)">resolved</span></div>
+        </div>
+        <div class="cv-card" style="margin-top:4px">
+          <div class="cv-card-title">Detection config <span style="font-size:9px;color:var(--muted)">NetworkX · Louvain</span></div>
+          <div class="cv-row"><span class="cv-key">Min ring size</span><span class="cv-val">3 nodes</span></div>
+          <div class="cv-row"><span class="cv-key">Density threshold</span><span class="cv-val amber">≥ 0.60</span></div>
+          <div class="cv-row"><span class="cv-key">Algorithm</span><span class="cv-val blue">Louvain communities</span></div>
+          <div class="cv-row"><span class="cv-key">Mule detection</span><span class="cv-val blue">Betweenness centrality</span></div>
+          <div class="cv-row"><span class="cv-key">Run interval</span><span class="cv-val">30s</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: Subgraph -->
+  <div class="view" id="view-subgraph">
+    <div class="content-view">
+      <div class="view-title">Subgraph Sampling — BFS NeighborLoader</div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">BFS Neighborhood Config</div>
+        <div class="cv-row"><span class="cv-key">Hop depth</span><span class="cv-val blue">3 hops</span></div>
+        <div class="cv-row"><span class="cv-key">Neighbors per hop</span><span class="cv-val">[10, 5, 3]</span></div>
+        <div class="cv-row"><span class="cv-key">Batch size</span><span class="cv-val">512 txns</span></div>
+        <div class="cv-row"><span class="cv-key">Sampling strategy</span><span class="cv-val blue">NeighborLoader (PyG)</span></div>
+        <div class="cv-row"><span class="cv-key">Max subgraph size</span><span class="cv-val">~1,500 nodes</span></div>
+      </div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">DSA Connection</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.8">
+          <div style="color:var(--accent2)">NeighborLoader = BFS with k-hop limit</div>
+          <div>• Each batch expands BFS frontier by 1 hop</div>
+          <div>• [10,5,3] = 10 nbrs at hop-1, 5 at hop-2, 3 at hop-3</div>
+          <div>• Max nodes per subgraph = 10×5×3 = 150 per root</div>
+          <div style="color:var(--amber2);margin-top:4px">Community detection = BFS-based modularity</div>
+          <div>• Louvain moves nodes to maximize Q (modularity)</div>
+          <div>• O(n log n) — much faster than spectral clustering</div>
+          <div style="color:var(--green2);margin-top:4px">Mule detection = Dijkstra shortest-path</div>
+          <div>• Betweenness = fraction of shortest paths through node</div>
+          <div>• O(VE) for unweighted — acceptable for subgraphs</div>
+        </div>
+      </div>
+      <div class="cv-card">
+        <div class="cv-card-title">Current Subgraph Stats <span style="color:var(--muted);font-size:9px">Ring #4</span></div>
+        <div class="cv-row"><span class="cv-key">Subgraph nodes</span><span class="cv-val green">48</span></div>
+        <div class="cv-row"><span class="cv-key">Subgraph edges</span><span class="cv-val green">127</span></div>
+        <div class="cv-row"><span class="cv-key">BFS depth reached</span><span class="cv-val">3</span></div>
+        <div class="cv-row"><span class="cv-key">Sampling time</span><span class="cv-val green">2.1ms</span></div>
+        <div class="cv-row"><span class="cv-key">Inference time</span><span class="cv-val green">9.8ms</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: GraphSAGE -->
+  <div class="view" id="view-graphsage">
+    <div class="content-view">
+      <div class="view-title">GraphSAGE Architecture — Message Passing</div>
+      <div class="layer-block sage">
+        <div class="layer-name">Conv Layer 1 — SAGEConv</div>
+        <div class="layer-detail">
+          in_channels: -1 (lazy init)  →  hidden: 64<br>
+          Aggregation: mean  |  normalize: True<br>
+          Params: ~18K  |  BFS hop: 1
+        </div>
+      </div>
+      <div class="layer-block sage">
+        <div class="layer-name">Conv Layer 2 — SAGEConv</div>
+        <div class="layer-detail">
+          in: 64  →  hidden: 64<br>
+          Aggregation: mean  |  Dropout: 0.3<br>
+          Params: ~8K  |  BFS hop: 2
+        </div>
+      </div>
+      <div class="layer-block gat">
+        <div class="layer-name">Conv Layer 3 — GATConv</div>
+        <div class="layer-detail">
+          in: 64  →  hidden: 64  |  heads: 4  concat: False<br>
+          Attention: softmax over neighbors<br>
+          Params: ~33K  |  BFS hop: 3  |  Explainable ✓
+        </div>
+      </div>
+      <div class="layer-block lin">
+        <div class="layer-name">Classifier — Linear</div>
+        <div class="layer-detail">
+          in: 64  →  out: 2  |  sigmoid activation<br>
+          Output: fraud probability per txn node<br>
+          Loss: BCEWithLogitsLoss (pos_weight=29.0)
+        </div>
+      </div>
+      <div class="cv-card" style="margin-top:10px">
+        <div class="cv-card-title">Training Config</div>
+        <div class="cv-row"><span class="cv-key">Optimizer</span><span class="cv-val blue">Adam  lr=0.001</span></div>
+        <div class="cv-row"><span class="cv-key">Epochs</span><span class="cv-val">150</span></div>
+        <div class="cv-row"><span class="cv-key">Pos weight</span><span class="cv-val amber">29.0 (imbalance)</span></div>
+        <div class="cv-row"><span class="cv-key">Fraud rate in data</span><span class="cv-val red">3.5%</span></div>
+        <div class="cv-row"><span class="cv-key">Total params</span><span class="cv-val">~61K</span></div>
+        <div class="cv-row"><span class="cv-key">Device</span><span class="cv-val green">CUDA / MPS</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: GAT Layers -->
+  <div class="view" id="view-gat">
+    <div class="content-view">
+      <div class="view-title">GAT — Graph Attention Networks</div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">Attention Mechanism</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.9">
+          <div style="color:var(--accent2)">e_ij = LeakyReLU(a^T · [Wh_i ‖ Wh_j])</div>
+          <div style="color:var(--text2)">α_ij = softmax_j(e_ij)</div>
+          <div style="color:var(--green2)">h'_i = σ(Σ_j α_ij · Wh_j)</div>
+          <div style="margin-top:6px;color:var(--muted)">→ Each node learns which neighbors matter most</div>
+          <div style="color:var(--muted)">→ α_ij is interpretable — explains the fraud flag</div>
+          <div style="color:var(--amber);margin-top:4px">→ High α_ij to known mule = strong fraud signal</div>
+        </div>
+      </div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">Layer 3 Config <span style="color:var(--muted);font-size:9px">GATConv</span></div>
+        <div class="cv-row"><span class="cv-key">Attention heads</span><span class="cv-val blue">4</span></div>
+        <div class="cv-row"><span class="cv-key">Head concat</span><span class="cv-val">False (mean)</span></div>
+        <div class="cv-row"><span class="cv-key">Dropout on attn</span><span class="cv-val">0.1</span></div>
+        <div class="cv-row"><span class="cv-key">LeakyReLU slope</span><span class="cv-val">0.2</span></div>
+        <div class="cv-row"><span class="cv-key">Output dim</span><span class="cv-val green">64</span></div>
+      </div>
+      <div class="cv-card">
+        <div class="cv-card-title">Attention Weights — Ring #4 (live)</div>
+        <div style="margin-top:4px">
+          <div class="bar-row"><div class="bar-label-row"><span class="bar-label">card:13926 → mule:2190</span><span class="bar-val" style="color:var(--red2)">0.89</span></div><div class="bar-bg"><div class="bar-fill" style="width:89%;background:var(--red2)"></div></div></div>
+          <div class="bar-row"><div class="bar-label-row"><span class="bar-label">card:41029 → mule:2190</span><span class="bar-val" style="color:var(--red2)">0.82</span></div><div class="bar-bg"><div class="bar-fill" style="width:82%;background:var(--red2)"></div></div></div>
+          <div class="bar-row"><div class="bar-label-row"><span class="bar-label">card:88341 → mule:2190</span><span class="bar-val" style="color:var(--amber2)">0.74</span></div><div class="bar-bg"><div class="bar-fill" style="width:74%;background:var(--amber2)"></div></div></div>
+          <div class="bar-row"><div class="bar-label-row"><span class="bar-label">card:13926 → card:41029</span><span class="bar-val" style="color:var(--accent2)">0.41</span></div><div class="bar-bg"><div class="bar-fill" style="width:41%;background:var(--accent2)"></div></div></div>
+          <div class="bar-row"><div class="bar-label-row"><span class="bar-label">card:88341 → card:41029</span><span class="bar-val" style="color:var(--muted)">0.18</span></div><div class="bar-bg"><div class="bar-fill" style="width:18%;background:var(--muted)"></div></div></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:6px">High attention to mule confirms fraud ring membership</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: Performance -->
+  <div class="view" id="view-performance">
+    <div class="content-view">
+      <div class="view-title">Model Performance Metrics</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div class="cv-card">
+          <div class="cv-card-title">Classification Metrics</div>
+          <div class="cv-row"><span class="cv-key">AUC-ROC</span><span class="cv-val green">0.986</span></div>
+          <div class="cv-row"><span class="cv-key">Precision</span><span class="cv-val green">97.3%</span></div>
+          <div class="cv-row"><span class="cv-key">Recall</span><span class="cv-val amber">94.1%</span></div>
+          <div class="cv-row"><span class="cv-key">F1-Score</span><span class="cv-val green">0.957</span></div>
+          <div class="cv-row"><span class="cv-key">Accuracy</span><span class="cv-val green">99.1%</span></div>
+        </div>
+        <div class="cv-card">
+          <div class="cv-card-title">Confusion Matrix</div>
+          <div class="mini-confusion">
+            <div class="conf-cell" style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.2)"><div class="conf-val" style="color:var(--green2)">22,841</div><div class="conf-lbl">True Neg</div></div>
+            <div class="conf-cell" style="background:rgba(248,81,73,0.07);border:1px solid rgba(248,81,73,0.15)"><div class="conf-val" style="color:var(--red2)">38</div><div class="conf-lbl">False Pos</div></div>
+            <div class="conf-cell" style="background:rgba(227,179,65,0.07);border:1px solid rgba(227,179,65,0.15)"><div class="conf-val" style="color:var(--amber2)">8</div><div class="conf-lbl">False Neg</div></div>
+            <div class="conf-cell" style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.2)"><div class="conf-val" style="color:var(--green2)">134</div><div class="conf-lbl">True Pos</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">Precision@k — Epoch History</div>
+        <div class="perf-chart" id="perfChart"></div>
+        <div class="perf-labels" id="perfLabels"></div>
+        <div style="font-family:var(--mono);font-size:8px;color:var(--muted);margin-top:4px">Precision over training epochs (sampled every 10)</div>
+      </div>
+      <div class="cv-card">
+        <div class="cv-card-title">Runtime Performance</div>
+        <div class="cv-row"><span class="cv-key">Inference latency p50</span><span class="cv-val green">8ms</span></div>
+        <div class="cv-row"><span class="cv-key">Inference latency p99</span><span class="cv-val green">12ms</span></div>
+        <div class="cv-row"><span class="cv-key">Subgraph sampling</span><span class="cv-val green">2.1ms</span></div>
+        <div class="cv-row"><span class="cv-key">Ring detection (full)</span><span class="cv-val amber">310ms</span></div>
+        <div class="cv-row"><span class="cv-key">Kafka consumer lag</span><span class="cv-val green">~0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: Settings -->
+  <div class="view" id="view-settings">
+    <div class="content-view">
+      <div class="view-title">System Settings</div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">Detection Thresholds</div>
+        <div class="setting-row"><div><div class="setting-label">Fraud score threshold</div><div class="setting-desc">Flag txn as fraud above this probability</div></div><input class="input-field" type="number" value="0.70" min="0" max="1" step="0.01"/></div>
+        <div class="setting-row"><div><div class="setting-label">Ring density threshold</div><div class="setting-desc">Min internal density to flag a community as ring</div></div><input class="input-field" type="number" value="0.60" min="0" max="1" step="0.01"/></div>
+        <div class="setting-row"><div><div class="setting-label">Min ring size</div><div class="setting-desc">Minimum nodes to form a fraud ring</div></div><input class="input-field" type="number" value="3" min="2" max="20"/></div>
+      </div>
+      <div class="cv-card" style="margin-bottom:10px">
+        <div class="cv-card-title">Model Settings</div>
+        <div class="setting-row"><div><div class="setting-label">GraphSAGE hidden dim</div><div class="setting-desc">Embedding dimension per layer</div></div><input class="input-field" type="number" value="64"/></div>
+        <div class="setting-row"><div><div class="setting-label">GAT heads</div><div class="setting-desc">Number of attention heads in layer 3</div></div><input class="input-field" type="number" value="4" min="1" max="16"/></div>
+        <div class="setting-row"><div><div class="setting-label">BFS hop depth</div><div class="setting-desc">Neighborhood sampling depth</div></div><input class="input-field" type="number" value="3" min="1" max="5"/></div>
+      </div>
+      <div class="cv-card">
+        <div class="cv-card-title">Feature Toggles</div>
+        <div class="setting-row"><div><div class="setting-label">Live Kafka streaming</div><div class="setting-desc">Consume upi-transactions topic</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="setting-row"><div><div class="setting-label">Ring detector</div><div class="setting-desc">Run Louvain every 30s</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="setting-row"><div><div class="setting-label">GAT explainability</div><div class="setting-desc">Log attention weights per alert</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+        <div class="setting-row"><div><div class="setting-label">FastAPI alerts webhook</div><div class="setting-desc">POST alerts to external endpoint</div></div><div class="toggle" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW: Logs -->
+  <div class="view" id="view-logs">
+    <div class="content-view">
+      <div class="view-title">System Logs <span style="font-size:9px;color:var(--muted)" id="log-count"></span></div>
+      <div id="logContainer" style="font-size:10px"></div>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-item"><div class="status-dot" style="background:var(--green)"></div>Kafka connected</div>
+    <div class="status-item"><div class="status-dot" style="background:var(--green)"></div>PyG model loaded</div>
+    <div class="status-item"><div class="status-dot" style="background:var(--amber)"></div>Ring detector running</div>
+    <div class="status-item"><div class="status-dot" style="background:var(--green)"></div>FastAPI healthy</div>
+    <div class="status-item" style="margin-left:auto;font-family:var(--mono);font-size:9px;color:var(--muted)">GraphSAGE+GAT · 3 layers · 64-dim · BFS NeighborLoader</div>
+    <div style="font-family:var(--mono);font-size:9px;color:var(--muted)" id="clock"></div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="panel-section">
+    <div class="panel-header"><span class="panel-title">Live Alerts</span><span style="font-family:var(--mono);font-size:9px;color:var(--red2)">● <span id="alertCount">142</span> flagged</span></div>
+    <div class="panel-body" id="alertFeed">
+      <div class="alert-card critical"><div class="alert-top"><span class="alert-type">RING #4 · MULE</span><span class="alert-score">0.94</span></div><div class="alert-meta">card1:<b>13926</b> · <b>₹48,200</b></div><div class="alert-tags"><span class="tag">4-node ring</span><span class="tag">density:0.83</span><span class="tag">betweenness↑</span></div></div>
+      <div class="alert-card critical"><div class="alert-top"><span class="alert-type">HIGH VELOCITY</span><span class="alert-score">0.91</span></div><div class="alert-meta">TxnID:<b>2987341</b> · <b>₹12,500</b></div><div class="alert-tags"><span class="tag">2:14 AM</span><span class="tag">velocity spike</span></div></div>
+      <div class="alert-card warning"><div class="alert-top"><span class="alert-type">SUSPICIOUS HUB</span><span class="alert-score">0.76</span></div><div class="alert-meta">card1:<b>8841</b> · <b>₹3,999</b></div><div class="alert-tags"><span class="tag">high degree</span><span class="tag">ring:3</span></div></div>
+      <div class="alert-card warning"><div class="alert-top"><span class="alert-type">STRUCTURING</span><span class="alert-score">0.71</span></div><div class="alert-meta">card1:<b>22017</b> · <b>₹9,999</b></div><div class="alert-tags"><span class="tag">below threshold</span><span class="tag">repeated</span></div></div>
+      <div class="alert-card info"><div class="alert-top"><span class="alert-type">WATCH · NEW NODE</span><span class="alert-score">0.58</span></div><div class="alert-meta">card1:<b>44192</b> · <b>₹1,200</b></div><div class="alert-tags"><span class="tag">new account</span><span class="tag">monitor</span></div></div>
+      <div class="alert-card safe"><div class="alert-top"><span class="alert-type">CLEARED</span><span class="alert-score">0.04</span></div><div class="alert-meta">TxnID:<b>2987421</b> · <b>₹250</b></div><div class="alert-tags"><span class="tag">normal</span></div></div>
+    </div>
+  </div>
+  <div class="panel-section">
+    <div class="panel-header"><span class="panel-title">Fraud Rings</span><span style="font-family:var(--mono);font-size:9px;color:var(--amber2)">7 detected</span></div>
+    <div class="panel-body">
+      <div class="ring-card selected" onclick="selectRing(this,4)"><div class="ring-top"><span class="ring-id">RING #4</span><span class="ring-density">density: 0.83</span></div><div class="ring-bar-bg"><div class="ring-bar-fill" style="width:83%"></div></div><div class="ring-stats"><span class="ring-stat">nodes: <span>4</span></span><span class="ring-stat">mule: <span>node-2190</span></span><span class="ring-stat">₹<span>1.2L</span></span></div></div>
+      <div class="ring-card" onclick="selectRing(this,2)"><div class="ring-top"><span class="ring-id">RING #2</span><span class="ring-density">density: 0.71</span></div><div class="ring-bar-bg"><div class="ring-bar-fill" style="width:71%"></div></div><div class="ring-stats"><span class="ring-stat">nodes: <span>6</span></span><span class="ring-stat">mule: <span>node-8841</span></span><span class="ring-stat">₹<span>3.8L</span></span></div></div>
+      <div class="ring-card" onclick="selectRing(this,5)"><div class="ring-top"><span class="ring-id">RING #5</span><span class="ring-density">density: 0.68</span></div><div class="ring-bar-bg"><div class="ring-bar-fill" style="width:68%"></div></div><div class="ring-stats"><span class="ring-stat">nodes: <span>3</span></span><span class="ring-stat">mule: <span>node-1043</span></span><span class="ring-stat">₹<span>88K</span></span></div></div>
+      <div class="ring-card" onclick="selectRing(this,1)"><div class="ring-top"><span class="ring-id">RING #1</span><span class="ring-density">density: 0.62</span></div><div class="ring-bar-bg"><div class="ring-bar-fill" style="width:62%"></div></div><div class="ring-stats"><span class="ring-stat">nodes: <span>8</span></span><span class="ring-stat">mule: <span>node-3317</span></span><span class="ring-stat">₹<span>7.1L</span></span></div></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ─── CLOCK ───
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false})+' IST';}
+tick();setInterval(tick,1000);
+
+// ─── LIVE COUNTERS ───
+let tps=847,fc=142,paused=false;
+setInterval(()=>{
+  if(paused)return;
+  tps+=Math.floor(Math.random()*40-20);
+  tps=Math.max(600,Math.min(1100,tps));
+  document.getElementById('tps').textContent=tps.toLocaleString();
+  document.getElementById('tpsLabel').textContent='+'+tps+'/s';
+},1200);
+setInterval(()=>{
+  if(paused||Math.random()>0.25)return;
+  fc+=Math.floor(Math.random()*3)+1;
+  document.getElementById('fraudCount').textContent=fc;
+  document.getElementById('alertCount').textContent=fc;
+  document.getElementById('sb-fraud').textContent=fc;
+  addLog('ALERT','Fraud flagged: TxnID '+Math.floor(Math.random()*9999999)+' score:'+((0.7+Math.random()*0.29).toFixed(2)),'err');
+},3000);
+
+function togglePause(){
+  paused=!paused;
+  const btn=document.getElementById('pauseBtn');
+  btn.textContent=paused?'▶ RESUME':'⚠ PAUSE';
+  btn.style.color=paused?'var(--green2)':'#f85149';
+  btn.style.borderColor=paused?'rgba(63,185,80,0.3)':'rgba(248,81,73,0.3)';
+  addLog('SYSTEM',paused?'Stream paused by user':'Stream resumed','warn');
+}
+
+// ─── SIDEBAR NAVIGATION ───
+function switchView(id,el){
+  document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  if(id==='performance') buildPerfChart();
+  if(id==='logs') scrollLogs();
+  addLog('NAV','Switched to view: '+id,'info');
+}
+
+function highlightRingFromView(num){
+  switchView('live', document.querySelector('.sidebar-item'));
+  document.querySelector('.sidebar-item').classList.add('active');
+  setTimeout(()=>{selectRing(document.querySelector('.ring-card'),num);},100);
+}
+
+// ─── GRAPH ───
+const canvas=document.getElementById('graphCanvas');
+const ctx=canvas.getContext('2d');
+let W,H,nodes=[],edges=[],animFrame,displayMode='all',selectedRingNum=4,paused2=false;
+
+const COLORS={
+  normal:{node:'rgba(47,129,247,0.7)',edge:'rgba(47,129,247,0.12)',glow:'rgba(47,129,247,0.15)'},
+  ring:{node:'rgba(227,179,65,0.85)',edge:'rgba(227,179,65,0.35)',glow:'rgba(227,179,65,0.2)'},
+  mule:{node:'rgba(248,81,73,0.9)',edge:'rgba(248,81,73,0.4)',glow:'rgba(248,81,73,0.25)'},
+};
+
+function initGraph(){
+  const area=canvas.parentElement;
+  W=area.clientWidth;H=area.clientHeight;
+  canvas.width=W;canvas.height=H;
+  nodes=[];edges=[];
+  for(let i=0;i<120;i++) nodes.push({x:Math.random()*W,y:Math.random()*H,r:2+Math.random()*2,type:'normal',vx:(Math.random()-.5)*0.15,vy:(Math.random()-.5)*0.15});
+  const rc=[[W*.42,H*.5],[W*.42-60,H*.5-40],[W*.42+50,H*.5-30],[W*.42+40,H*.5+55],[W*.42-50,H*.5+50]];
+  rc.slice(1).forEach((p,i)=>nodes.push({x:p[0],y:p[1],r:i===1?7:4.5,type:i===1?'mule':'ring',vx:(Math.random()-.5)*0.06,vy:(Math.random()-.5)*0.06,ring:4}));
+  const r2cx=W*.72,r2cy=H*.38;
+  for(let i=0;i<5;i++){const a=(i/5)*Math.PI*2;nodes.push({x:r2cx+Math.cos(a)*55,y:r2cy+Math.sin(a)*40,r:i===0?6:4,type:i===0?'mule':'ring',vx:(Math.random()-.5)*0.08,vy:(Math.random()-.5)*0.08,ring:2});}
+  const r5cx=W*.22,r5cy=H*.72;
+  for(let i=0;i<3;i++){const a=(i/3)*Math.PI*2;nodes.push({x:r5cx+Math.cos(a)*38,y:r5cy+Math.sin(a)*30,r:i===1?5.5:3.5,type:i===1?'mule':'ring',vx:(Math.random()-.5)*0.07,vy:(Math.random()-.5)*0.07,ring:5});}
+  for(let i=0;i<180;i++){const a=Math.floor(Math.random()*120),b=Math.floor(Math.random()*120);if(a!==b)edges.push({a,b,type:'normal'});}
+  const r4s=120;
+  [[r4s,r4s+1],[r4s+1,r4s+2],[r4s+2,r4s+3],[r4s+3,r4s],[r4s,r4s+2],[r4s+1,r4s+3]].forEach(([a,b])=>edges.push({a,b,type:'ring',ring:4}));
+  for(let i=0;i<6;i++)edges.push({a:r4s+Math.floor(Math.random()*4),b:Math.floor(Math.random()*120),type:'normal'});
+  const r2s=124;
+  for(let i=0;i<5;i++)for(let j=i+1;j<5;j++)edges.push({a:r2s+i,b:r2s+j,type:'ring',ring:2});
+  const r5s=129;
+  [[r5s,r5s+1],[r5s+1,r5s+2],[r5s,r5s+2]].forEach(([a,b])=>edges.push({a,b,type:'ring',ring:5}));
+}
+
+let t=0;
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  t+=0.005;
+  const grad=ctx.createRadialGradient(W*.42,H*.5,0,W*.42,H*.5,W*.4);
+  grad.addColorStop(0,'rgba(47,129,247,0.025)');grad.addColorStop(1,'transparent');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+  if(!paused){
+    nodes.forEach(n=>{n.x+=n.vx;n.y+=n.vy;if(n.x<10||n.x>W-10)n.vx*=-1;if(n.y<10||n.y>H-10)n.vy*=-1;});
+  }
+  const fade=displayMode!=='all';
+  edges.forEach(e=>{
+    const na=nodes[e.a],nb=nodes[e.b];if(!na||!nb)return;
+    let alpha=1,col;
+    if(e.type==='ring'){col=e.ring===selectedRingNum?COLORS.ring.edge:'rgba(227,179,65,0.1)';if(fade&&displayMode==='mules')alpha=0.1;}
+    else{col=COLORS.normal.edge;if(fade)alpha=0.15;}
+    ctx.beginPath();ctx.moveTo(na.x,na.y);ctx.lineTo(nb.x,nb.y);
+    ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.lineWidth=e.type==='ring'&&e.ring===selectedRingNum?1.2:0.5;ctx.stroke();ctx.globalAlpha=1;
+  });
+  nodes.forEach((n,i)=>{
+    let col,r=n.r,alpha=1;
+    const isRS=n.type==='ring'&&n.ring===selectedRingNum,isMS=n.type==='mule'&&n.ring===selectedRingNum;
+    if(n.type==='mule'){col=COLORS.mule.node;if(fade&&displayMode==='rings'&&!isMS)alpha=0.2;}
+    else if(n.type==='ring'){col=isRS?COLORS.ring.node:'rgba(180,140,50,0.4)';if(fade&&displayMode==='mules')alpha=0.15;}
+    else{col=COLORS.normal.node;if(fade)alpha=0.1;}
+    if(displayMode==='rings'&&n.type==='normal')alpha=0.05;
+    if(displayMode==='mules'&&n.type!=='mule')alpha=0.06;
+    if(isRS||isMS){
+      const pulse=1+0.3*Math.sin(t*4+(i*0.7));r=n.r*pulse;
+      const gc=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*4);
+      gc.addColorStop(0,n.type==='mule'?COLORS.mule.glow:COLORS.ring.glow);gc.addColorStop(1,'transparent');
+      ctx.globalAlpha=0.6*alpha;ctx.beginPath();ctx.arc(n.x,n.y,r*4,0,Math.PI*2);ctx.fillStyle=gc;ctx.fill();ctx.globalAlpha=1;
+    }
+    ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);ctx.fillStyle=col;ctx.fill();
+    if(n.type!=='normal'){ctx.strokeStyle=n.type==='mule'?COLORS.mule.node:COLORS.ring.node;ctx.lineWidth=1;ctx.stroke();}
+    ctx.globalAlpha=1;
+    if(isMS){ctx.font='8px JetBrains Mono,monospace';ctx.fillStyle='#f85149';ctx.textAlign='center';ctx.fillText('MULE',n.x,n.y-n.r-4);}
+  });
+  const scanY=(t*60)%H;
+  const sg=ctx.createLinearGradient(0,scanY-8,0,scanY+2);
+  sg.addColorStop(0,'transparent');sg.addColorStop(0.5,'rgba(47,129,247,0.1)');sg.addColorStop(1,'transparent');
+  ctx.fillStyle=sg;ctx.fillRect(0,scanY-8,W,10);
+  animFrame=requestAnimationFrame(draw);
+}
+
+function setMode(m,btn){
+  displayMode=m;
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function resetGraph(){cancelAnimationFrame(animFrame);initGraph();draw();displayMode='all';document.querySelectorAll('.tool-btn').forEach((b,i)=>b.classList.toggle('active',i===0));}
+function selectRing(el,num){
+  document.querySelectorAll('.ring-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');selectedRingNum=num;
+  document.getElementById('graphInfo').textContent=`12,483 nodes · 89,201 edges · Ring #${num} highlighted · Click node to inspect`;
+}
+window.addEventListener('resize',()=>{cancelAnimationFrame(animFrame);initGraph();draw();});
+initGraph();draw();
+
+// ─── PERFORMANCE CHART ───
+function buildPerfChart(){
+  const vals=[0.41,0.58,0.71,0.79,0.85,0.89,0.92,0.94,0.96,0.965,0.968,0.97,0.972,0.973,0.973];
+  const labels=['10','20','30','40','50','60','70','80','90','100','110','120','130','140','150'];
+  const chart=document.getElementById('perfChart');
+  const lbls=document.getElementById('perfLabels');
+  if(chart.children.length>0)return;
+  const max=Math.max(...vals);
+  vals.forEach((v,i)=>{
+    const bar=document.createElement('div');bar.className='perf-bar';
+    const pct=Math.round((v/max)*100);
+    bar.style.height=pct+'%';
+    const g=v>0.95?'var(--green2)':v>0.8?'var(--accent2)':v>0.6?'var(--amber2)':'var(--red2)';
+    bar.style.background=g;bar.title=`Epoch ${labels[i]}: ${(v*100).toFixed(1)}%`;
+    chart.appendChild(bar);
+    const lbl=document.createElement('div');lbl.className='perf-label';lbl.textContent=labels[i];
+    lbls.appendChild(lbl);
+  });
+}
+
+// ─── LOGS ───
+const LOG_TYPES=['KAFKA','GNN','RING','ALERT','SAGE','GAT','API','BFS'];
+const LOG_MSGS=[
+  ['Consumed 847 messages from upi-transactions','info'],
+  ['Subgraph sampled: 48 nodes 127 edges in 2.1ms','info'],
+  ['Ring detector: Louvain converged in 290ms','warn'],
+  ['Fraud alert: card:13926 score:0.94','err'],
+  ['GraphSAGE forward pass: 512 nodes 9.8ms','info'],
+  ['GAT attention computed: heads=4 dim=64','info'],
+  ['FastAPI GET /fraud-rings 200 OK 3ms','ok'],
+  ['NeighborLoader BFS depth=3 batch loaded','info'],
+  ['Model inference: 142 flagged out of 23841','err'],
+  ['Kafka offset committed: partition=0 offset=89201','info'],
+];
+let logLines=[];
+let logCount=0;
+function addLog(type,msg,cls='info'){
+  const now=new Date().toLocaleTimeString('en-IN',{hour12:false});
+  logLines.unshift({time:now,type,msg,cls});
+  if(logLines.length>200)logLines.pop();
+  logCount++;
+  document.getElementById('log-badge').textContent=logCount;
+}
+// seed initial logs
+for(let i=0;i<20;i++){
+  const [msg,cls]=LOG_MSGS[Math.floor(Math.random()*LOG_MSGS.length)];
+  addLog(LOG_TYPES[Math.floor(Math.random()*LOG_TYPES.length)],msg,cls);
+}
+setInterval(()=>{
+  if(paused)return;
+  const [msg,cls]=LOG_MSGS[Math.floor(Math.random()*LOG_MSGS.length)];
+  addLog(LOG_TYPES[Math.floor(Math.random()*LOG_TYPES.length)],msg,cls);
+  if(document.getElementById('view-logs').classList.contains('active'))renderLogs();
+},1800);
+function renderLogs(){
+  const c=document.getElementById('logContainer');
+  const cnt=document.getElementById('log-count');
+  if(cnt)cnt.textContent='('+logLines.length+' entries)';
+  c.innerHTML=logLines.slice(0,80).map(l=>`<div class="log-line"><span class="log-time">${l.time}</span><span class="log-${l.cls}">[${l.type}]</span> ${l.msg}</div>`).join('');
+}
+function scrollLogs(){renderLogs();}
+</script>
+</body>
+</html>

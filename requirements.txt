@@ -1,0 +1,29 @@
+# Core ML
+torch>=2.12.0
+torch-geometric>=2.5.0
+ 
+# Graph algorithms
+networkx==3.2.1
+python-louvain==0.16
+ 
+# Data
+pandas>=2.0.0
+numpy>=1.26.0
+scikit-learn==1.4.0
+pyarrow>=14.0.0
+kaggle==1.6.6
+ 
+# API
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+ 
+# Streaming
+confluent-kafka==2.3.0
+ 
+# Utils
+tqdm==4.66.2
+matplotlib==3.8.3
+seaborn==0.13.2
+joblib==1.3.2
+python-dotenv==1.0.1
