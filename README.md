@@ -1,3 +1,21 @@
+## 👩‍💻 Author
+
+### Nandini Mukherjee
+
+AI & Machine Learning Engineering Student passionate about:
+
+* Graph Neural Networks (GNNs)
+* Fraud Detection Systems
+* Machine Learning Engineering
+* Real-time Data Streaming
+* Scalable AI Solutions
+
+### Acknowledgement
+
+This project was conceptualized, designed, and developed by **Nandini Mukherjee** as an advanced AI/ML system for real-time UPI fraud detection using Graph Neural Networks, community detection, and streaming analytics.
+
+The objective of this project is to demonstrate how graph-based learning can uncover hidden fraud rings and money mule networks that traditional machine learning models often fail to detect.
+
 <div align="center">
 
 # 🛡️ UPI Fraud Sentinel
