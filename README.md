@@ -28,9 +28,16 @@ The objective of this project is to demonstrate how graph-based learning can unc
 [![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)](https://kafka.apache.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
+
 **Models UPI transactions as a graph and detects fraud rings + money mules using GraphSAGE + GAT**
 
-[Live Demo](#) · [API Docs](#api-endpoints) · [Architecture](#architecture)
+🌐 **Live Dashboard:**
+https://upi-fraud-gnn-production.up.railway.app/dashboard
+
+📚 **API Documentation:**
+https://upi-fraud-gnn-production.up.railway.app/docs
+
+[Architecture](#architecture)
 
 ---
 
